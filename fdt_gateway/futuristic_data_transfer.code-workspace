@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "futuristic_data_transfer",
+			"path": ".."
+		},
+		{
+			"name": "serial:/COM8",
+			"uri": "serial://com8/"
+		}
+	],
+	"settings": {}
+}
