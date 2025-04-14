@@ -12,6 +12,7 @@ gc.enable()
 import serial.tools.list_ports
 import serial
 import time
+import re
 
 port_gw = "COM8"
 
@@ -35,8 +36,13 @@ def get_msg():
     msg = str(conn_gw.readline())
     msg = msg.replace("b'\"", '').replace('\\\\n"\\r\\n\'', '')
     mac = msg[0:12]
+    mac_regex = re.compile("[0-9a-f]{12}")
+    mac_is_valid = bool(mac_regex.match(mac))
     data = msg[12:]
-    return mac, data
+    if mac_is_valid:
+        return mac, data
+    else:
+        return "", ""
 
 
 content = b''
@@ -48,7 +54,6 @@ while True:
         print(f"received from {mac}: {data}")
         print('--------------------------------')
         if data.startswith('file_transfer_begin'):
-            print('yoohoo')
             mac, filename = get_msg()
             content = ""
             payload = ""
