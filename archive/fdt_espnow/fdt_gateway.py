@@ -5,15 +5,26 @@ import network
 import binascii
 import ujson
 import _thread
+import sys
+
+
+def write_serial(data):
+    data = data.rstrip().replace("\r\n", "\n")
+    sys.stdout.write(f"{data}\r\n")
+
 
 pin = Pin(8, Pin.OUT)   # set GPIO0 to output to drive NeoPixels
 np = NeoPixel(pin, 8)   # create NeoPixel driver on GPIO0 for 8 pixels
-np[0] = (20, 20, 0) # set the first pixel to white
-np.write()           
+
+def set_led_color(color=(20, 20, 20)):
+    np[0] = color # set the first pixel to white
+    np.write()
+
+set_led_color(color=(20, 20, 20))
 
 sta = network.WLAN(network.STA_IF)
 sta.active(True)
-print(sta.config('mac'))
+write_serial(sta.config('mac'))
 
 e = espnow.ESPNow()
 e.active(True)
@@ -29,15 +40,14 @@ def espnow_task():
     global node_level
     while True:
         host, msg = e.recv()
-        if msg:             # msg == None if timeout in recv()
-            # print(host, msg)
+        if msg:
             if msg[0] == '{':
                 try:
                     msg_json = ujson.loads(msg)
-                    print(msg_json)
+                    write_serial(msg_json)
                     if 'function' in msg_json:
                         function = msg_json['function']
-                        print(function)
+                        write_serial(function)
                         if function == 'ping':
                             e.add_peer(host)
                             resp = { "level": node_level, "function": 'pong' }
@@ -46,25 +56,25 @@ def espnow_task():
                         
                         elif function == 'route':
                             msg_json['route'].append(long_uid)
-                            print(ujson.dumps(msg_json))
+                            write_serial(ujson.dumps(msg_json))
 
                     peers_table = e.peers_table
                     for peer, values in peers_table.items():
                         rssi = values[0]
-                        print(f"Peer {peer}: RSSI = {rssi}")
+                        write_serial(f"Peer {peer}: RSSI = {rssi}")
                 except Exception as err:
-                    print(err)
+                    write_serial(err)
                     pass
             else:
                 try:
                     # Remove the 'b' prefix manually
                     cleaned_str = msg.decode('utf-8').replace("b'", "").replace("'", "")
-                    print(cleaned_str)
+                    write_serial(cleaned_str)
                     # Convert the string into bytes and then decode it
                     # decoded_string = bytes(cleaned_str, 'utf-8').decode('unicode-escape')
                     # print(decoded_string)
                 except Exception as err3:
-                    print(f"err3: {err3}")
+                    write_serial(f"err3: {err3}")
 
             if msg == b'end':
                 break
