@@ -31,7 +31,7 @@ class NLDT_Gateway:
     def __init__(self):
         self.search_device()
         if len(self.devices)>0:
-            d = self.devices[0]
+            d = self.devices[1]
             self.init_gateway(d.device)
         self.dispatcher = nldt_dispatcher.NLDT_Dispatcher()
         self.keep_alive = True
@@ -55,6 +55,6 @@ class NLDT_Gateway:
                     print(msg.decode('utf-8')[2:-4])
                 else:
                     print(msg)
-                # self.dispatcher.process_message(msg)
+                self.dispatcher.process_message(msg)
         
 

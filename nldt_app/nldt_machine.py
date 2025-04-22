@@ -26,7 +26,7 @@ class NLDT_Machine:
         self.host = host
         self.search_device()
         if len(self.devices)>0:
-            d = self.devices[1]
+            d = self.devices[0]
             self.init_machine(d.device)
         self.file_collector = nldt_file_collector.NLDT_File_Collector(self.host)
         self.keep_alive = True
@@ -37,7 +37,7 @@ class NLDT_Machine:
         self.devices = [port for port in ports if 'Silicon Labs CP210x' in port.description]
         
     def init_machine(self, port):
-        self.conn = serial.Serial(port, 115200, timeout=10)
+        self.conn = serial.Serial(port, 115200, timeout=1)
         self.conn.write(b'node\r\n')
     
     def process_local_dir(self):
@@ -47,6 +47,8 @@ class NLDT_Machine:
         for frame in self.file_collector.outbox:
             # print(frame)
             payload = frame.encode('utf-8') + b"\r\n"
+            
             print(payload)
             self.conn.write(payload)
+            time.sleep(0.05)
         
