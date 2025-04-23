@@ -45,22 +45,14 @@ def espnow_task():
     while True:
         host, msg = e.recv()
         if msg:
-            # set_led_color((20,0,0))
-            # time.sleep_ms(20)
-            # set_led_color((0, 20, 0))
-            # write_serial(msg)
             try:
                 msg_json = ujson.loads(msg)
-                # if msg.startswith("b'"):
-                #     # Remove b''
-                #     msg = msg[3:-1].rstrip()
                 if 'ping' in msg_json:
                     write_serial(f"ping: {msg_json['ping']}")
                     e.add_peer(host)
                     resp = { "pong": long_uid, "level": node_level }
                     e.send(host, ujson.dumps(resp))
                     e.del_peer(host)
-
                 else:
                     write_serial(msg)
 

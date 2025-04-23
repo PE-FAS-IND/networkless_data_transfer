@@ -51,7 +51,7 @@ class NLDT_Machine:
                 
                 logger.info(payload)
                 self.conn.write(payload)
-                time.sleep(0.05)
+                time.sleep(0.02)
             # Empty outbox
             self.file_collector.outbox = []
         

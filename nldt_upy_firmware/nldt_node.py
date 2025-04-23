@@ -46,45 +46,21 @@ def esp_loop():
 
     while True:
         host, msg = e.recv()
-        if msg:             # msg == None if timeout in recv()
-            # print(host, msg)
-            # set_led_color((20,0,0))
-            # time.sleep_ms(20)
-            # set_led_color((0,0,20))
+        if msg:
             try:
                 msg_json = ujson.loads(msg)
                 if 'level' in msg_json:
                     level = msg_json['level']
-                    # print(f"{host} is level {level} (type: {type(level)})")
                     if level<node_level-1:
-                        # print('Level up!!')
                         favourite_node = host
+                        set_led_color((20,20,20))
                         try:
                             e.add_peer(host)                            
                         except Exception as err1:
-                            # print('err1------------------------------')
-                            # print(err1)
                             pass
                         node_level = level + 1
                         resp = { "level": node_level, "function": 'map', "gateway": host, "route": [host,] }
                         e.send(host, ujson.dumps(resp))
-                # if 'function' in msg_json:
-                #     function = msg_json['function']
-                #     # print(function)
-                #     if function == 'ping':
-                #         try:
-                #             e.add_peer(host)
-                #         except Exception as err2:
-                #             # print('err2------------------------------')
-                #             # print(err2)
-                #             pass
-                #         resp = { "level": node_level, "function": 'pong' }
-                #         e.send(host, ujson.dumps(resp))
-                #         e.del_peer(host)
-                    
-                #     elif function == 'route':
-                #         msg_json['route'].append(long_uid)
-                #         e.send(favourite_node, ujson.dumps(msg_json))
                 if 'ping' in msg_json:
                     write_serial(f"ping: {msg_json['ping']}")
                     e.add_peer(host)
@@ -164,25 +140,7 @@ def read_line():
     # Check if data is available and read it if so
     return sys.stdin.readline() if spoll.poll(0) else None
 
-buffer = ''
 while True:
-    byte = read1()
-    # print(f"Received: {byte} - {type(byte)}")
-    
-    if byte is not None:
-        buffer += byte
-        # print(f"Buffer: {buffer}")
-        # Handle the byte        
-        if buffer[-1] == '\n':
-            send_gw(data=buffer.rstrip())
-            buffer = ''
-            
-        else:
-            ...
-    
-       
-    else:
-        # No data available, continue with other tasks
-        pass
-
-
+    rx = sys.stdin.readline().rstrip()
+    if rx is not None:
+        send_gw(rx)
