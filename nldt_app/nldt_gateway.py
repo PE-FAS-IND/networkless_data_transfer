@@ -16,6 +16,9 @@ State machine:
 import logging
 
 logger = logging.getLogger("nldt")
+logger.setLevel(logging.INFO)
+FORMAT = '%(asctime)s | %(message)s'
+logging.basicConfig(format=FORMAT)
 
 import gc
 gc.enable()
@@ -52,9 +55,15 @@ class NLDT_Gateway:
                 msg = self.conn.readline()
                 
                 if msg.startswith(b'b'):
-                    print(msg.decode('utf-8')[2:-4])
+                    msg_clean = msg.decode('utf-8')
+                    to_decode = f"{msg_clean.rstrip()}.decode('utf-8')"                    # print(to_decode)
+                    decoded = eval(to_decode)
+                    self.dispatcher.process_message(decoded)
                 else:
-                    print(msg)
-                self.dispatcher.process_message(msg)
+                    # print(msg)
+                    ...
+                
         
 
+if __name__ == "__main__":
+    m = NLDT_Gateway()

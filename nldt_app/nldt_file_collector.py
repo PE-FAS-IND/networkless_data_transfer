@@ -6,7 +6,7 @@ Created on Thu Apr 17 08:50:05 2025
 """
 
 import logging
-logging.getLogger("nldt")
+logger = logging.getLogger("nldt")
 
 import os
 import hashlib

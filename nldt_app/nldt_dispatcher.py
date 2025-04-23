@@ -4,6 +4,8 @@ Created on Wed Apr 16 11:27:03 2025
 
 @author: baeby
 """
+import logging
+logger = logging.getLogger("nldt")
 
 import nldt_inbox
 import json
@@ -22,12 +24,13 @@ class NLDT_Dispatcher:
         return inbox
     
     def process_message(self, msg):
+        # print(f"Dispatcher: incomming msg = {msg}")
         try:
             obj = json.loads(msg)
-            # print('is_json')
             host = obj['host']
             inbox = self.get_inbox(host)
             inbox.process_message(obj)
         except Exception as e:
-            print(e)
+            # logger.info(f"Msg not processed ({e})")
+            ...
         

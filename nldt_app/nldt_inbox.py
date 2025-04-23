@@ -11,7 +11,7 @@ import re
 import hashlib
 import logging
 
-logger = logging.getLogger("ndt")
+logger = logging.getLogger("nldt")
 
 class NLDT_Inbox:
     """
@@ -48,9 +48,10 @@ class NLDT_Inbox:
                 md5_returned = hashlib.md5(data).hexdigest()
                 # print(f'md5 = {md5_returned}')
             if md5_returned == self.checksum:
-                print(f"Received: {self.file} - checksum valid")
+                logger.info(f"Received: {self.file} - checksum valid")
             else:
-                print(f"Received: {self.file} - checksum not valid")
+                logger.info(f"Received: {self.file} - checksum not valid")
+                os.remove(self.path)
             
             # Reset all file related values
             self.path = None

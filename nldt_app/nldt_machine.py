@@ -42,13 +42,18 @@ class NLDT_Machine:
     
     def process_local_dir(self):
         self.file_collector.list_files()
-        print(self.file_collector.to_transfer)
+        logger.info(self.file_collector.to_transfer)
         self.file_collector.file_to_frames(self.file_collector.to_transfer[0])
         for frame in self.file_collector.outbox:
             # print(frame)
             payload = frame.encode('utf-8') + b"\r\n"
             
-            print(payload)
+            logger.info(payload)
             self.conn.write(payload)
             time.sleep(0.05)
+        # Empty outbox
+        self.file_collector.outbox = []
         
+
+if __name__ == "__main__":
+    m = NLDT_Machine('U1234567')

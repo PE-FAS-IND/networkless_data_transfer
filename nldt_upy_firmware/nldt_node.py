@@ -48,9 +48,9 @@ def esp_loop():
         host, msg = e.recv()
         if msg:             # msg == None if timeout in recv()
             # print(host, msg)
-            set_led_color((20,0,0))
-            time.sleep_ms(20)
-            set_led_color((0,0,20))
+            # set_led_color((20,0,0))
+            # time.sleep_ms(20)
+            # set_led_color((0,0,20))
             try:
                 msg_json = ujson.loads(msg)
                 if 'level' in msg_json:
@@ -132,7 +132,7 @@ def send_gw(data):
         try:
             if data.startswith("b'"):
                 data = data[2:-4]
-                print(data)
+                # print(data)
             payload = ujson.loads(data)
             e.send(favourite_node, ujson.dumps(payload))
         except Exception as err:

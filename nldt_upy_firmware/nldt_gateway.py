@@ -45,10 +45,10 @@ def espnow_task():
     while True:
         host, msg = e.recv()
         if msg:
-            set_led_color((20,0,0))
-            time.sleep_ms(20)
-            set_led_color((0, 20, 0))
-            write_serial(msg)
+            # set_led_color((20,0,0))
+            # time.sleep_ms(20)
+            # set_led_color((0, 20, 0))
+            # write_serial(msg)
             try:
                 msg_json = ujson.loads(msg)
                 # if msg.startswith("b'"):
@@ -65,6 +65,6 @@ def espnow_task():
                     write_serial(msg)
 
             except Exception as err:
-                write_serial(err)
+                write_serial(f"Erreur = {err}".encode('utf-8'))
 
 _thread.start_new_thread(espnow_task, ())
