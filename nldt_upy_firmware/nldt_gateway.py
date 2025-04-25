@@ -53,6 +53,7 @@ def espnow_task():
                     resp = { "pong": long_uid, "level": node_level }
                     e.send(host, ujson.dumps(resp))
                     e.del_peer(host)
+                
                 else:
                     write_serial(msg)
 
@@ -60,3 +61,20 @@ def espnow_task():
                 write_serial(f"Erreur = {err}".encode('utf-8'))
 
 _thread.start_new_thread(espnow_task, ())
+
+
+while True:
+    rx = sys.stdin.readline().rstrip()
+    if rx is not None:
+        try:
+            msg_json = ujson.loads(rx)
+            if 'dest' in msg_json:
+                route = msg_json['route']
+                next = route[-1]
+                msg_json['route'] = msg_json['route'][0:-1]
+                e.add_peer(next)
+                e.send(next, ujson.dumps(msg_json))
+                e.del_peer(next)
+
+        except Exception as err:
+                write_serial(f"Erreur = {err}".encode('utf-8')) 

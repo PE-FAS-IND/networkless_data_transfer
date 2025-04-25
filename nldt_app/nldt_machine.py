@@ -9,7 +9,12 @@ Created on Thu Apr 17 15:35:30 2025
 
 import logging
 
-logger = logging.getLogger("nldt")
+logger = logging.getLogger("nldt_m")
+logging.basicConfig(level=logging.INFO,
+    format="{asctime} | {filename:12.12s} {lineno:d} | {levelname:8} | {message}",
+    style='{'
+    )
+
 
 import gc
 gc.enable()
@@ -17,6 +22,7 @@ gc.enable()
 import serial.tools.list_ports
 import serial
 import time
+import json
 
 import nldt_file_collector
 
@@ -39,6 +45,18 @@ class NLDT_Machine:
     def init_machine(self, port):
         self.conn = serial.Serial(port, 115200, timeout=1)
         self.conn.write(b'node\r\n')
+        time.sleep(2)
+        self.trace_route()
+        
+    
+    def trace_route(self):
+        trace_msg = { "trace": ['1'],
+                      "host": self.host }
+        logger.info(f"Machine -> {trace_msg}")
+        payload = json.dumps(trace_msg).encode('utf-8') + b"\r\n"
+        logger.info(f"Machine -> {payload}")
+        self.conn.write(payload)
+        
     
     def process_local_dir(self):
         self.file_collector.list_files()
@@ -54,6 +72,20 @@ class NLDT_Machine:
                 time.sleep(0.02)
             # Empty outbox
             self.file_collector.outbox = []
+    
+    def read_msg(self):
+        if self.conn.in_waiting>0:
+            msg = self.conn.readline()
+            
+            if msg.startswith(b'b'):
+                msg_clean = msg.decode('utf-8')
+                to_decode = f"{msg_clean.rstrip()}.decode('utf-8')"                    # print(to_decode)
+                decoded = eval(to_decode)
+                logger.info(decoded)
+            else:
+                # print(msg)
+                ...
+        
         
 
 if __name__ == "__main__":

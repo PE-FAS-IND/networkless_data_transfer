@@ -5,7 +5,12 @@ Created on Wed Apr 16 11:27:03 2025
 @author: baeby
 """
 import logging
-logger = logging.getLogger("nldt")
+logger = logging.getLogger("nldt_gw")
+# logging.basicConfig(level=logging.INFO,
+#     format="{asctime} | {filename:12.12s} {%(lineno)d} | {levelname:8} | {message}",
+#     style='{'
+#     )
+
 
 import nldt_inbox
 import json
@@ -29,7 +34,9 @@ class NLDT_Dispatcher:
             obj = json.loads(msg)
             host = obj['host']
             inbox = self.get_inbox(host)
-            inbox.process_message(obj)
+            confirmation = inbox.process_message(obj)
+            if confirmation:
+                return confirmation
         except Exception as e:
             # logger.info(f"Msg not processed ({e})")
             ...

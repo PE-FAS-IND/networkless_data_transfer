@@ -15,10 +15,11 @@ State machine:
 
 import logging
 
-logger = logging.getLogger("nldt")
-logger.setLevel(logging.INFO)
-FORMAT = '%(asctime)s | %(message)s'
-logging.basicConfig(format=FORMAT)
+logger = logging.getLogger("nldt_gw")
+logging.basicConfig(level=logging.INFO,
+    format="{asctime} | {filename:12.12s} {lineno:d} | {levelname:8} | {message}",
+    style='{'
+    )
 
 import gc
 gc.enable()
@@ -26,6 +27,7 @@ gc.enable()
 import serial.tools.list_ports
 import serial
 import time
+import json
 
 import nldt_dispatcher
 
@@ -58,7 +60,13 @@ class NLDT_Gateway:
                     msg_clean = msg.decode('utf-8')
                     to_decode = f"{msg_clean.rstrip()}.decode('utf-8')"                    # print(to_decode)
                     decoded = eval(to_decode)
-                    self.dispatcher.process_message(decoded)
+                    confirmation = self.dispatcher.process_message(decoded)
+                    if confirmation:
+                        logger.info('Confirm to gateway')
+                        # TODO:debug!!
+                        payload = json.dumps(confirmation).encode('utf-8') + b"\r\n"
+                        logger.info(payload)
+                        # self.conn.write(payload)
                 else:
                     # print(msg)
                     ...
@@ -66,4 +74,4 @@ class NLDT_Gateway:
         
 
 if __name__ == "__main__":
-    m = NLDT_Gateway()
+    gw = NLDT_Gateway()
