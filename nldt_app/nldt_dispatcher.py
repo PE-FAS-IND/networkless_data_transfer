@@ -6,10 +6,10 @@ Created on Wed Apr 16 11:27:03 2025
 """
 import logging
 logger = logging.getLogger("nldt_gw")
-# logging.basicConfig(level=logging.INFO,
-#     format="{asctime} | {filename:12.12s} {%(lineno)d} | {levelname:8} | {message}",
-#     style='{'
-#     )
+logging.basicConfig(level=logging.INFO,
+    format="{asctime} | {filename:12.12s} {%(lineno)d} | {levelname:8} | {message}",
+    style='{'
+    )
 
 
 import nldt_inbox

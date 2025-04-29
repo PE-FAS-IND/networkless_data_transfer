@@ -11,7 +11,6 @@ import time
 import sys
 
 def write_serial(data):
-    data = data
     sys.stdout.write(f"{data}\r\n")
 
 
@@ -47,39 +46,40 @@ def esp_loop():
     while True:
         host, msg = e.recv()
         if msg:
+            write_serial(b'<-- msg in\r\n')
             try:
+                while msg.startswith("b"):
+                    msg = eval(f"{msg}.decode(utf-8)")
+
                 msg_json = ujson.loads(msg)
                 if 'level' in msg_json:
                     level = msg_json['level']
                     if level<node_level-1:
                         favourite_node = host
-                        set_led_color((20,20,20))
                         try:
                             e.add_peer(host)                            
                         except Exception as err1:
                             pass
                         node_level = level + 1
-                        # resp = { "level": node_level, "function": 'map', "gateway": host, "route": [host,] }
-                        # e.send(host, ujson.dumps(resp))
+                        set_led_color((20,20,20))
 
-                if 'ping' in msg_json:
-                    write_serial(f"ping: {msg_json['ping']}")
+                elif 'ping' in msg_json:
                     e.add_peer(host)
                     resp = { "pong": long_uid, "level": node_level }
                     e.send(host, ujson.dumps(resp))
                     e.del_peer(host)
                 
-                if 'trace' in msg_json:
-                    # e.add_peer(favourite_node)
+                elif 'trace' in msg_json:
                     msg_trace = msg_json
                     msg_trace['trace'] = msg_trace['trace'].append(long_uid)
                     e.send(favourite_node, ujson.dumps(msg_trace))
 
-                if 'dest' in msg_json:
+                elif 'dest' in msg_json:
                     dest = msg_json['dest']
+
                     # If node is dest, write serial
                     if dest==long_uid:
-                        write_serial(msg)
+                        write_serial(ujson.dumps(msg_json))
                     
                     # Else, continue route
                     else:
@@ -91,7 +91,8 @@ def esp_loop():
                         e.del_peer(next)
 
                 else:
-                    write_serial(msg)
+                    write_serial('No special key found in espnow msg')
+                    write_serial(msg_json)
 
                 peers_table = e.peers_table
                 for peer, values in peers_table.items():
@@ -99,8 +100,8 @@ def esp_loop():
                     # print(f"Peer {peer}: RSSI = {rssi}")
 
             except Exception as err:
-                # print('err------------------------------')
-                # print(err)
+                write_serial('err------------------------------')
+                write_serial(err)
                 pass
 
 
@@ -116,17 +117,19 @@ def send_gw(data):
     global favourite_node
     if favourite_node:
         try:
-            if data.startswith("b'"):
-                data = data[2:-4]
-                # print(data)
+            while data.startswith("b"):
+                data = eval(f"{data}.decode(utf-8)")
+
             payload = ujson.loads(data)
 
             if "trace" in payload:
                 payload["trace"] = [long_uid]
-
             e.send(favourite_node, ujson.dumps(payload))
+
         except Exception as err:
-            print(err)
+            write_serial('line 129')
+            write_serial(data)
+            write_serial(err)
         
             
     
@@ -140,5 +143,5 @@ import sys
 
 while True:
     rx = sys.stdin.readline().rstrip()
-    if rx is not None:
+    if rx is not None and rx!='\r':
         send_gw(rx)

@@ -33,11 +33,19 @@ import nldt_dispatcher
 
 
 class NLDT_Gateway:
-    def __init__(self):
+    def __init__(self, port=None):
+        self.port = port
         self.search_device()
+
         if len(self.devices)>0:
-            d = self.devices[1]
-            self.init_gateway(d.device)
+            if not port:
+                self.port = self.devices[0].name
+            
+            self.init_gateway(self.port)
+        else:
+            return "No device available"
+            
+                
         self.dispatcher = nldt_dispatcher.NLDT_Dispatcher()
         self.keep_alive = True
         self.listen()        
@@ -45,33 +53,32 @@ class NLDT_Gateway:
     def search_device(self):
         # List all available COM ports
         ports = serial.tools.list_ports.comports(include_links=True)
-        self.devices = [port for port in ports if 'Silicon Labs CP210x' in port.description]
+        self.devices = [port for port in ports if "USB Serial Port" in port.description]
         
     def init_gateway(self, port):
         self.conn = serial.Serial(port, 115200, timeout=10)
-        self.conn.write(b'gateway\r\n')
+        self.conn.write(b'{"role":"gateway"}\r\n')
     
     def listen(self):
         while self.keep_alive:
             if self.conn.in_waiting:
                 msg = self.conn.readline()
-                
-                if msg.startswith(b'b'):
-                    msg_clean = msg.decode('utf-8')
-                    to_decode = f"{msg_clean.rstrip()}.decode('utf-8')"                    # print(to_decode)
-                    decoded = eval(to_decode)
-                    confirmation = self.dispatcher.process_message(decoded)
+                logger.info(f"<-- {msg} {msg.startswith(b'b')}")
+                try:
+                    msg_clean = msg.decode('utf-8').rstrip()
+                    confirmation = self.dispatcher.process_message(msg_clean)
                     if confirmation:
                         logger.info('Confirm to gateway')
+                        logger.info(confirmation)
                         # TODO:debug!!
                         payload = json.dumps(confirmation).encode('utf-8') + b"\r\n"
                         logger.info(payload)
-                        # self.conn.write(payload)
-                else:
-                    # print(msg)
+                        self.conn.write(payload)
+                except Exception as e:
+                    print(e)
                     ...
                 
         
 
 if __name__ == "__main__":
-    gw = NLDT_Gateway()
+    gw = NLDT_Gateway(port='COM11')

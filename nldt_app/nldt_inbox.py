@@ -4,11 +4,6 @@ Created on Tue Apr 15 11:30:01 2025
 
 @author: baeby
 """
-
-import json
-import os
-import re
-import hashlib
 import logging
 
 logger = logging.getLogger("nldt_gw")
@@ -18,6 +13,13 @@ logging.basicConfig(level=logging.INFO,
     )
 
 
+import json
+import os
+import re
+import hashlib
+
+
+logger.info('Hello : nldt_inbox!')
 class NLDT_Inbox:
     """
     """
@@ -33,10 +35,17 @@ class NLDT_Inbox:
     def process_message(self, obj):
         # logger.info(obj)
         if "trace" in obj:
-            # logger.info('trace in obj')
+            logger.info('trace in obj')
             logger.info(f"Route = {obj['trace']}")
             self.route = obj['trace']
-            logger.info(f"{self.host} et route = {self.trace}")
+            logger.info(self.route)
+            confirm_route = { 
+                "host": self.host,
+                "dest": self.route[0],
+                "route": self.route
+                }
+            logger.info(confirm_route)
+            return confirm_route
                     
         elif "file" in obj:
             logger.info('file in obj')
