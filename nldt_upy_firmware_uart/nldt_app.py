@@ -86,12 +86,18 @@ class NLDT_APP:
         while True:
             if len(self.uart_inbox)>0:
                 msg = self.uart_inbox.pop()
-                print(f"processing uart_inbox : {msg} -end-")
+                # print(f"processing uart_inbox : {msg} -end-")
                 msg_json = ujson.loads(msg)
                 
                 if self.role == 'gateway':
                     if 'trace' in msg_json:
                         self.uart_outbox.insert(0, ujson.dumps(msg_json))
+                    elif 'dest' in msg_json:
+                        dest = msg_json['dest']
+                        route = msg_json['route']
+                        next = route.pop()
+                        msg_json['route'] = route
+                        self.espnow_outbox.insert(0,(next, ujson.dumps(msg_json)))
                     else:
                         ...
 
@@ -109,6 +115,15 @@ class NLDT_APP:
                     elif 'complete' in msg_json:
                         print(f"e_outbox + {self.favourite_node} :: {msg_json}")
                         self.espnow_outbox.insert(0,(self.favourite_node, ujson.dumps(msg_json)))
+                    elif 'dest' in msg_json:
+                        dest = msg_json['dest']
+                        route = msg_json['route']
+                        next = route.pop()
+                        if dest==next:
+                            self.uart_outbox.insert(0, ujson.dumps(msg_json))
+                        else:
+                            msg_json['route'] = route
+                            self.espnow_outbox.insert(0,(next, ujson.dumps(msg_json)))
                     else:
                         ...
 

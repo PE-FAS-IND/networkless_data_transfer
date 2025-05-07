@@ -23,15 +23,20 @@ import serial.tools.list_ports
 import serial
 import time
 import json
+from threading import Thread
+import shutil
+import os
 
 import nldt_file_collector
 
 
 class NLDT_Machine:
-    def __init__(self, host, port=None):
+    def __init__(self, host, port=None, period=15):
         self.host = host
         self.port = port
-        self.search_device()
+        self.period = period
+        self.uart_inbox = []        
+        self.search_device()       
         
         if len(self.devices)>0:
             if not port:
@@ -39,10 +44,12 @@ class NLDT_Machine:
             
             self.init_machine(self.port)
         else:
+            logger.info("No device available")
             return "No device available"
         
         self.file_collector = nldt_file_collector.NLDT_File_Collector(self.host)
         self.keep_alive = True
+        self.start_threads()
         
     def search_device(self):
         # List all available COM ports
@@ -53,7 +60,7 @@ class NLDT_Machine:
         self.conn = serial.Serial(port, 115200, timeout=1)
         self.conn.write(b'{"role":"node"}\r\n')
         time.sleep(2)
-        # self.trace_route()
+        self.trace_route()
         
     
     def trace_route(self):
@@ -80,16 +87,72 @@ class NLDT_Machine:
             # Empty outbox
             self.file_collector.outbox = []
     
+    def task_process_local_dir(self):
+        while self.keep_alive:
+            self.process_local_dir()
+            time.sleep(self.period)
+    
     def read_msg(self):
         if self.conn.in_waiting>0:
             msg = self.conn.readline()
-            logger.info(f"<-- {msg} {msg.startswith(b'b')}")
+            logger.info(f"<-- {msg}")
             try:
                 msg_clean = msg.decode('utf-8').rstrip()
-                logger.info(msg_clean)
+                self.uart_inbox.insert(0, msg_clean)
             except Exception as e:
                 print(e)
-                ...
+    
+    def task_uart(self):
+        while self.keep_alive:
+            self.read_msg()
+            
+    
+    def process_uart_inbox(self):
+        if len(self.uart_inbox)>0:
+            msg = self.uart_inbox.pop()
+            logger.info(f"uart <- {msg}")
+            try:
+                msg_json = json.loads(msg)
+                if 'confirm' in msg_json:
+                    filename = msg_json['confirm']
+                    src_dir = self.file_collector.source_dir
+                    dest_dir = os.path.join(src_dir, "moved")
+                    if not os.path.isdir(dest_dir):
+                        os.makedirs(dest_dir, exist_ok=True)
+                    src = os.path.join(src_dir, filename)
+                    dest = os.path.join(self.file_collector.source_dir, "moved", filename)
+                    try:
+                        shutil.copy2(src, dest)
+                        os.remove(src)
+                    except:
+                        ...
+            except Exception as e:
+                logger.info(e)
+    
+    def task_uart_inbox(self):
+        while self.keep_alive:
+            self.process_uart_inbox()
+    
+    def start_threads(self):
+        logger.info("Start threads")
+        
+        self.task_uart = Thread(target=self.task_uart)
+        self.task_uart.start()
+        
+        self.task_uart_inbox = Thread(target=self.task_uart_inbox)
+        self.task_uart_inbox.start()
+        
+        self.task_process_local_dir = Thread(target=self.task_process_local_dir)
+        self.task_process_local_dir.start()
+                
+    
+    def stop_threads(self):
+        logger.info("Stop threads")
+        self.keep_alive = False
+        self.task_uart.join()
+        self.task_uart_inbox.join()
+        self.task_process_local_dir.join()
+        logger.info("Threads stopped")
         
         
 

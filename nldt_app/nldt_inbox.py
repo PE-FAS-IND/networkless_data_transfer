@@ -28,6 +28,9 @@ class NLDT_Inbox:
         self.host = host
         self.route = []
         self.inbox_path = os.path.join(".", "inbox", host)
+        
+    
+    def check_path(self):
         if not os.path.isdir(self.inbox_path):
             os.makedirs(self.inbox_path, exist_ok=True)
     
@@ -49,6 +52,7 @@ class NLDT_Inbox:
                     
         elif "file" in obj:
             logger.info('file in obj')
+            self.check_path()
             self.file = obj['file']
             self.checksum = obj['checksum']
             self.path = os.path.join(self.inbox_path, self.file)

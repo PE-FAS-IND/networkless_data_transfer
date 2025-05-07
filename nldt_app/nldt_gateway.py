@@ -28,6 +28,7 @@ import serial.tools.list_ports
 import serial
 import time
 import json
+from threading import Thread
 
 import nldt_dispatcher
 
@@ -48,7 +49,7 @@ class NLDT_Gateway:
                 
         self.dispatcher = nldt_dispatcher.NLDT_Dispatcher()
         self.keep_alive = True
-        self.listen()        
+        self.start_threads()        
         
     def search_device(self):
         # List all available COM ports
@@ -59,7 +60,7 @@ class NLDT_Gateway:
         self.conn = serial.Serial(port, 115200, timeout=10)
         self.conn.write(b'{"role":"gateway"}\r\n')
     
-    def listen(self):
+    def listen_uart(self):
         while self.keep_alive:
             if self.conn.in_waiting:
                 msg = self.conn.readline()
@@ -70,14 +71,22 @@ class NLDT_Gateway:
                     if confirmation:
                         logger.info('Confirm to gateway')
                         logger.info(confirmation)
-                        # TODO:debug!!
                         payload = json.dumps(confirmation).encode('utf-8') + b"\r\n"
                         logger.info(payload)
                         self.conn.write(payload)
                 except Exception as e:
                     print(e)
-                    ...
-                
+        
+    def start_threads(self):
+        logger.info("Start threads")
+        self.thread_listen_uart = Thread(target=self.listen_uart)
+        self.thread_listen_uart.start()
+
+    def stop_threads(self):
+        logger.info("Stop threads")
+        self.keep_alive = False
+        self.thread_listen_uart.join()
+        logger.info("Threads stopped")              
         
 
 if __name__ == "__main__":
