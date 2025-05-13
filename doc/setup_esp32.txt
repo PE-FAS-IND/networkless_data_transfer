@@ -1,0 +1,26 @@
+Câblage:
+
+FTDI        ESP32
+noir-gnd    GND
+route-3v3   3V3
+vert-rts    RST
+jaune-rx    9
+orange-tx   10
+brun-rtr    Non Connecté
+
+Installation micropython
+Installer esptool avec pip dans un environnemnt python (micropython est portable)
+> pip install esptool
+
+Connecter l'usb de l'esp32.
+Trouver le port COM par le gestionnaire de périphériques
+Dans la console python oû est installé esptool:
+Naviguez vers le répertoire ou est le fichier binaire micropython (téléchargé depuis https://micropython.org/download/ESP32_GENERIC_C3/)
+> cd C:\data\micropython
+par exemple si c'est le COM8:
+Effacer la mémoire flash
+> esptool --port COM8 erase_flash
+Chargez le firmware micropython (adapter le nom de fichier):
+> esptool --port COM8 --baud 460800 write_flash 0 ESP32_GENERIC_C3-20241129-v1.24.1.bin
+
+Depuis vscode, par exemple avec PyMakr:
