@@ -33,6 +33,7 @@ class NLDT_APP:
         # Role = node or gateway
         self.role = None
         self.level = 1000
+        self.favourite_node = None
         self.e = None
         self.b_peer = b'\xbb\xbb\xbb\xbb\xbb\xbb'
         # Init variables
@@ -44,6 +45,7 @@ class NLDT_APP:
         # Init COMs
         self.init_uart()
         self.init_espnow()
+
         # Start threads
         self.start_threads()
 
@@ -63,6 +65,8 @@ class NLDT_APP:
                     line_str = line.decode('utf-8').rstrip('\r')
                     print(f"uart <- {line_str}")
                     self.uart_inbox.insert(0, line_str)
+        else:
+            time.sleep_ms(100)
     
     def uart_polling(self):
         while True:
@@ -99,7 +103,7 @@ class NLDT_APP:
                         msg_json['route'] = route
                         self.espnow_outbox.insert(0,(next, ujson.dumps(msg_json)))
                     else:
-                        ...
+                        print(f'Unattended frame : {msg_json}')
 
                 elif self.role == 'node':
                     if 'trace' in msg_json:
@@ -125,7 +129,7 @@ class NLDT_APP:
                             msg_json['route'] = route
                             self.espnow_outbox.insert(0,(next, ujson.dumps(msg_json)))
                     else:
-                        ...
+                        print(f'Unattended frame : {msg_json}')
 
                 else:
                     if 'role' in msg_json:
@@ -138,6 +142,10 @@ class NLDT_APP:
                         elif self.role == 'node':
                             self.uart_outbox.insert(0,'ok bob, node')
                             set_led_color((0,0,20))
+                    else:
+                        print(f"{msg_json} received before getting a role")
+            else:
+                time.sleep_ms(100)
 
     # Processing UART outbox
     def process_uart_outbox(self):
@@ -147,7 +155,8 @@ class NLDT_APP:
                 print(f"uart -> {msg}")
                 payload = msg.encode('utf-8') + b"\r\n"
                 self.uart.write(payload)
-                # time.sleep_ms(100)
+            else:
+                time.sleep_ms(100)
 
 
     # Processing ESPNOW inbox
@@ -197,21 +206,23 @@ class NLDT_APP:
                             self.espnow_outbox.insert(self.favourite_node, ujson.dumps(msg_json))
                     else:
                         ...
+            else:
+                time.sleep_ms(100)
 
     # Processing ESPNOW outbox   
     def process_espnow_outbox(self):
         while True:
             if len(self.espnow_outbox)>0 and self.e:
                 (host, msg) = self.espnow_outbox.pop()
-                
-                # Check host is in bytes
-                if type(host)==str:
-                    host = binascii.unhexlify(host)
-
-                msg_json = ujson.loads(msg)
-
-                print(f"e -> {host} ({len(host)}, {type(host)}) :: {msg_json}")
                 try:
+                    # Check host is in bytes
+                    if type(host)==str:
+                        host = binascii.unhexlify(host)
+
+                    msg_json = ujson.loads(msg)
+
+                    print(f"e -> {host} ({len(host)}, {type(host)}) :: {msg_json}")
+
                     self.e.add_peer(host)
                     self.e.send(host, ujson.dumps(msg_json))
                     self.e.del_peer(host)
@@ -220,14 +231,16 @@ class NLDT_APP:
                     print(f"fav = {self.favourite_node}")
                     print(f"host = {host}")
                     print(type(host))
+            else:
+                time.sleep_ms(100)
                 
 
     # Ping:
     def espnow_ping(self):
         while True:
+            time.sleep(4)
             ping = { "ping": self.long_uid, "level": self.level }
-            self.espnow_outbox.append((self.b_peer, ujson.dumps(ping)))  
-            time.sleep(10)
+            self.espnow_outbox.append((self.b_peer, ujson.dumps(ping))) 
 
     # Start threads
     def start_threads(self):

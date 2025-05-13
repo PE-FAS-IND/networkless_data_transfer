@@ -28,6 +28,7 @@ class NLDT_Inbox:
         self.host = host
         self.route = []
         self.inbox_path = os.path.join(".", "inbox", host)
+        self.check_path()
         
     
     def check_path(self):
@@ -76,6 +77,8 @@ class NLDT_Inbox:
                 logger.info(self.file)
                 logger.info(self.route)
                 logger.info(self.host)
+                
+                # Move to subfolder confirmed
                 
                 confirmation = { 
                     "dest": self.route[0],

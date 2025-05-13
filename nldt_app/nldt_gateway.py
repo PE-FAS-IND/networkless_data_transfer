@@ -36,6 +36,8 @@ import nldt_dispatcher
 class NLDT_Gateway:
     def __init__(self, port=None):
         self.port = port
+        self.uart_inbox = []
+        self.uart_outbox = []
         self.search_device()
 
         if len(self.devices)>0:
@@ -44,9 +46,9 @@ class NLDT_Gateway:
             
             self.init_gateway(self.port)
         else:
-            return "No device available"
-            
-                
+            logger.info("No device available --> start cancelled")
+            return
+                            
         self.dispatcher = nldt_dispatcher.NLDT_Dispatcher()
         self.keep_alive = True
         self.start_threads()        
@@ -64,28 +66,53 @@ class NLDT_Gateway:
         while self.keep_alive:
             if self.conn.in_waiting:
                 msg = self.conn.readline()
-                logger.info(f"<-- {msg} {msg.startswith(b'b')}")
+                logger.info(f"<-- {msg}")
                 try:
                     msg_clean = msg.decode('utf-8').rstrip()
-                    confirmation = self.dispatcher.process_message(msg_clean)
-                    if confirmation:
-                        logger.info('Confirm to gateway')
-                        logger.info(confirmation)
-                        payload = json.dumps(confirmation).encode('utf-8') + b"\r\n"
-                        logger.info(payload)
-                        self.conn.write(payload)
+                    self.uart_inbox.insert(0, msg_clean)
                 except Exception as e:
                     print(e)
+            else:
+                time.sleep(0.1)
+                
+    def process_uart_inbox(self):
+        if len(self.uart_inbox)>0:
+            msg = self.uart_inbox.pop()
+            logger.info(f"uart <- {msg}")
+            try:
+                confirmation = self.dispatcher.process_message(msg)
+                if confirmation:
+                    logger.info('Confirm to gateway')
+                    logger.info(confirmation)
+                    payload = json.dumps(confirmation).encode('utf-8') + b"\r\n"
+                    logger.info(payload)
+                    self.conn.write(payload)
+            except Exception as e:
+                print(e)
+        else:
+            time.sleep(0.1)
+            
+    
+    def task_uart_inbox(self):
+        while self.keep_alive:
+            self.process_uart_inbox()
+    
         
     def start_threads(self):
         logger.info("Start threads")
+        
         self.thread_listen_uart = Thread(target=self.listen_uart)
         self.thread_listen_uart.start()
+        
+        self.thread_uart_inbox = Thread(target=self.task_uart_inbox)
+        self.thread_uart_inbox.start()
+
 
     def stop_threads(self):
         logger.info("Stop threads")
         self.keep_alive = False
         self.thread_listen_uart.join()
+        self.thread_uart_inbox.join()
         logger.info("Threads stopped")              
         
 
