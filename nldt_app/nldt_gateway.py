@@ -60,7 +60,13 @@ class NLDT_Gateway:
         
     def init_gateway(self, port):
         self.conn = serial.Serial(port, 115200, timeout=10)
+        self.conn.setRTS(1)
+        time.sleep(0.2)
+        self.conn.setRTS(0)
+        time.sleep(4)
         self.conn.write(b'{"role":"gateway"}\r\n')
+        time.sleep(0.2)
+        self.conn.write(b'{"cleanup":"empty"}\r\n')
     
     def listen_uart(self):
         while self.keep_alive:
@@ -117,4 +123,4 @@ class NLDT_Gateway:
         
 
 if __name__ == "__main__":
-    gw = NLDT_Gateway(port='COM11')
+    gw = NLDT_Gateway(port='COM17')

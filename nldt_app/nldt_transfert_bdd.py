@@ -6,6 +6,10 @@ Created on Mon May 12 15:43:30 2025
 """
 
 import logging
+logging.basicConfig(level=logging.INFO,
+    format="{asctime} | {filename:12.12s} {lineno:d} | {levelname:8} | {message}",
+    style='{'
+    )
 logger = logging.getLogger("nldt_gw")
 
 import pyodbc
@@ -67,8 +71,13 @@ class Transfert_BDD:
     
     def std_txt_file_to_query(self, filepath):
         folder, filename = os.path.split(filepath)
-        date_table = Path(filename).stem        
-        table = "_".join(date_table.split('_')[-2:])
+        if filename.startswith("P"):
+            # FLATPROP_HYSTDATA format: PxDATE...
+            p_sn_table = Path(filename).stem
+            table = p_sn_table[16:]
+        else:
+            date_table = Path(filename).stem        
+            table = "_".join(date_table.split('_')[-2:])
         columns = ""
         values = ""
         with open(filepath) as f:

@@ -52,6 +52,7 @@ class NLDT_Machine:
         
         self.period = period
         self.uart_inbox = []
+        self.uart_outbox = []
         self.busy = False
         self.search_device()
         if port:
@@ -71,14 +72,23 @@ class NLDT_Machine:
         self.devices = [port for port in ports if 'USB Serial Port' in port.description]
         
     def init_machine(self):
-        self.conn = serial.Serial(self.port, 115200, timeout=10)   
-        self.reboot_esp32()
-        self.conn.write(b'{"role":"node"}\r\n')
-        time.sleep(0.2)
-        self.conn.write(b'{"cleanup":"empty"}\r\n')
-        self.start_threads()
-        time.sleep(2)
-        self.trace_route()
+        self.keep_alive = True
+        try:
+            self.conn = serial.Serial(self.port, 115200, timeout=10) 
+            self.reboot_esp32()
+            self.uart_outbox.insert(0, json.dumps({"role":"node"}))
+            time.sleep(0.2)
+            self.uart_outbox.insert(0, json.dumps({"cleanup":"empty"}))
+            self.start_threads()
+            time.sleep(2)
+            self.trace_route()
+        except Exception as e:
+            try:
+                self.conn.close()
+            except:
+                pass
+            self.stop_threads()
+        
         
     def reboot_esp32(self):
         self.conn.setRTS(1)
@@ -89,10 +99,7 @@ class NLDT_Machine:
     def trace_route(self):
         trace_msg = { "trace": [],
                       "host": self.host }
-        logger.info(f"Machine -> {trace_msg}")
-        payload = json.dumps(trace_msg).encode('utf-8') + b"\r\n"
-        logger.info(f"Machine -> {payload}")
-        self.conn.write(payload)
+        self.uart_outbox.insert(0, json.dumps(trace_msg))
     
     def task_trace_route(self):
         while self.keep_alive:
@@ -106,11 +113,7 @@ class NLDT_Machine:
         for filename in self.file_collector.to_transfer:
             self.file_collector.file_to_frames(filename)
             for frame in self.file_collector.outbox:
-                # print(frame)
-                payload = frame.encode('utf-8') + b"\r\n"
-                
-                # logger.info(payload)
-                self.conn.write(payload)
+                self.uart_outbox.insert(0, frame)
                 time.sleep(0.3)
             # Empty outbox
             self.file_collector.outbox = []
@@ -123,17 +126,22 @@ class NLDT_Machine:
                 self.process_local_dir()            
     
     def read_msg(self):
-        if self.conn.in_waiting>0:
-            msg = self.conn.readline()
-            logger.info(f"<-- {msg}")
-            try:
+        try:
+            if self.conn.in_waiting>0:
+                msg = self.conn.readline()
+                logger.info(f"<-- {msg}")
+                
                 msg_clean = msg.decode('utf-8').rstrip()
                 self.uart_inbox.insert(0, msg_clean)
-            except Exception as e:
-                print(e)
-                                
-        else:
-            time.sleep(0.1)
+            else:
+                time.sleep(0.1)
+                
+        except Exception as e:
+            logger.error(f"COM error - restart app -- {e}")
+            self.stop_threads()
+            
+                            
+        
     
     def task_uart(self):
         while self.keep_alive:
@@ -168,14 +176,33 @@ class NLDT_Machine:
         while self.keep_alive:
             self.process_uart_inbox()
     
+    def process_uart_outbox(self):
+        if len(self.uart_outbox)>0:
+            msg = self.uart_outbox.pop()
+            logger.info(f"uart -> {msg}")
+            payload =  msg.rstrip().encode('utf-8') + b"\r\n"
+            try:
+                self.conn.write(payload)
+            except Exception as e:
+                logger.error(f"Error uart_outbox -- {e}")
+        else:
+            time.sleep(0.1)
+    
+    def task_uart_outbox(self):
+        while self.keep_alive:
+            self.process_uart_outbox()
+        
     def start_threads(self):
         logger.info("Start threads")
-        
+        self.keep_alive = True
         self.thread_uart = Thread(target=self.task_uart)
         self.thread_uart.start()
         
         self.thread_uart_inbox = Thread(target=self.task_uart_inbox)
         self.thread_uart_inbox.start()
+        
+        self.thread_uart_outbox = Thread(target=self.task_uart_outbox)
+        self.thread_uart_outbox.start()
         
         self.thread_process_local_dir = Thread(target=self.task_process_local_dir)
         self.thread_process_local_dir.start()
@@ -187,10 +214,32 @@ class NLDT_Machine:
     def stop_threads(self):
         logger.info("Stop threads")
         self.keep_alive = False
-        self.thread_uart.join()
-        self.thread_uart_inbox.join()
-        self.thread_process_local_dir.join()
+        try:
+            self.thread_uart.join()
+        except Exception as e:
+            logger.info(f"thread_uart -- {e}")
+        
+        try:
+            self.thread_uart_inbox.join()
+        except Exception as e:
+            logger.info(f"thread_uart_inbox -- {e}")
+            logger.info(e)
+        
+        try:
+            self.thread_uart_outbox.join()
+        except Exception as e:
+            logger.info(f"thread_uart_outbox -- {e}")
+            logger.info(e)
+            
+        try:
+            self.thread_process_local_dir.join()
+        except Exception as e:
+            logger.info(f"thread_process_local_dir -- {e}")
+            logger.info(e)
+        
         logger.info("Threads stopped")
+        time.sleep(10)
+        self.init_machine()
         
         
 
@@ -214,6 +263,7 @@ if __name__ == "__main__":
     try:
         m = NLDT_Machine(host=machine, port=port)
     except Exception as e:
+        logger.info('------------------END-------------------')
         logger.info(e)
         
         
