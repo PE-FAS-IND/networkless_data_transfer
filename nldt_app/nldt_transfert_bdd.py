@@ -16,8 +16,16 @@ import pyodbc
 import os
 from pathlib import Path
 import shutil
-import pandas as pd
+from pandas import read_sql
+import glob
 import json
+import jsonpath_ng as jp
+from lxml import etree
+from lxml import objectify
+import re
+import time
+from datetime import datetime
+from dateutil import tz
 
 
 class Transfert_BDD:
@@ -39,6 +47,8 @@ class Transfert_BDD:
         self.databasename = db
         self.schema = schema
         
+        self.connect()
+        
     def connect(self):
         cnxn_string = f"""DRIVER={self.driver};
                 SERVER={self.host};
@@ -55,7 +65,7 @@ class Transfert_BDD:
     
     def get_data_maps(self, inbox):
         query = f"SELECT * FROM OTdatamaps.DATA_MAP WHERE INBOX = '{inbox}'"
-        results = pd.read_sql(query, self.conn)
+        results = read_sql(query, self.conn)
         if len(results)==0:
             return None
         else:
@@ -82,6 +92,7 @@ class Transfert_BDD:
         values = ""
         with open(filepath) as f:
             lines = f.readlines()
+            f.close()
         
         for line in lines:
             content = line.split("#")[0]
@@ -100,6 +111,119 @@ class Transfert_BDD:
         query = "INSERT INTO " + table + " (" + columns + ") VALUES (" + values + ")"
         return query
     
+    
+    def json_file_to_query(self, filepath, data_map):
+        with open(filepath) as f:
+            json_obj = json.loads(f.read())
+            f.close()
+        table = data_map['TABLE_NAME']
+        
+        columns = ""
+        values = ""
+        
+        for field in data_map['data_map']:
+            print('*******************************************')
+            print(field)
+            print('*******************************************')
+            
+            column = field['field']
+            name_query = jp.parse(field["path"])
+            result = name_query.find(json_obj)
+            value = result[0].value
+            
+            to_zone = tz.tzlocal()
+            
+            match field["format"]:
+                case "datetime":
+                    dt = datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
+                    value = dt.astimezone(to_zone).strftime("%Y-%m-%dT%H:%M:%S")
+
+                    columns += f"{column},"
+                    values += f"'{value}',"
+
+                case "num":
+                    value = float(value)
+
+                    columns += f"{column},"
+                    values += f"{value},"
+                
+                case "text":
+                    columns += f"{column},"
+                    values += f"'{value}',"
+                
+                case "json":
+                    value = json.dumps(value).replace("'", "''")
+                    columns += f"{column},"
+                    values += f"'{value}',"
+
+                case "machine":
+                    # If format matches a machine number : remove "."
+                    if re.search(r"[UuQqXx][0-9]{3}[.][0-9]{4}", value):
+                        value = value.replace(".", "")
+
+                    columns += f"{column},"
+                    values += f"'{value}',"
+                
+                case _:
+                    ...
+            
+        # strip last coma
+        columns = columns[:-1]
+        values = values[:-1]
+
+        query = f"""SET DATEFORMAT ymd;
+                    INSERT INTO {table} ({columns}) VALUES ({values}) """
+
+        return query 
+        
+    
+    def xml_file_to_query(self, filepath, data_map):
+        with open(filepath) as f:
+            tree = objectify.parse(filepath)
+            f.close()
+        root = tree.getroot()
+        main = root.getchildren()[0]
+        
+        columns = ""
+        values = ""
+
+        to_zone = tz.tzlocal()
+
+        for field in data_map:
+            label = field["path"]
+            value = main.find(field["path"]).text
+
+            match field["format"]:
+                case "datetime":
+                    dt = datetime.utcfromtimestamp(int(value))
+                    value = dt.astimezone(to_zone).strftime("%Y-%m-%dT%H:%M:%S")
+
+                    columns += f"{label},"
+                    values += f"'{value}',"
+
+                case "num":
+                    value = float(value)
+
+                    columns += f"{label},"
+                    values += f"{value},"
+
+                case _:
+                    # If format matches a machine number : remove "."
+                    if re.search(r"[UuQqXx][0-9]{3}[.][0-9]{4}", value):
+                        value = value.replace(".", "")
+
+                    columns += f"{label},"
+                    values += f"'{value}',"
+
+        # strip last coma
+        columns = columns[:-1]
+        values = values[:-1]
+
+        query = f"""SET DATEFORMAT ymd;
+                    INSERT INTO {self.table} ({columns}) VALUES ({values}) """
+
+        return query    
+    
     def execute_query(self, query):
         cursor = self.conn.cursor()
         cursor.execute(query)
@@ -108,27 +232,59 @@ class Transfert_BDD:
     def process_folder(self, folderpath, data_maps=None):
         _, inbox = os.path.split(folderpath)
         data_maps = self.get_data_maps(inbox)
-        files = [f for f in os.listdir(folderpath) if (f.endswith('.txt') or f.endswith('.json') or f.endswith('.xml')) ]
-        os.makedirs(os.path.join(folderpath, "done"), exist_ok=True)
-        for f in files:
-            try:
-                if data_maps==None:
+        
+        if data_maps:
+            for data_map in data_maps:
+                filename_filter = data_map['FILENAME_FILTER']
+                file_ext = data_map['FILE_EXT']
+                files = glob.glob(os.path.join(folderpath, filename_filter))
+                for f in files:
+                    folder, filename = os.path.split(f)
+                    # try:
+                    match file_ext:
+                        case "xml":
+                            query = self.xml_file_to_query(f, data_map)
+                        case "json":
+                            query = self.json_file_to_query(f, data_map)
+                            print("-----------------------------------------")
+                            print(query)
+                            print("-----------------------------------------")
+                            
+                        case _:
+                            ...
+                            
+                    self.execute_query(query)
+                    # Move file
+                    src = f
+                    dst = os.path.join(folderpath, 'done', filename)
+                    shutil.copy2(src, dst)
+                    os.remove(src)
+                    # except Exception as e:
+                    #     logger.error(e)
+                        
+                
+                
+                
+        else:
+            files = glob.glob(os.path.join(folderpath, "*.txt"))
+            
+            for f in files:
+                try:
                     query = self.std_txt_file_to_query(os.path.join(folderpath, f))               
-                else:
-                    for data_map in data_maps:
-                        filename_filter = data_map['FILENAME_FILTER']
-                        file_ext = data_map['FILE_EXT']
-                        # query = self.
-                        ...
                     
-                self.execute_query(query)
-                # Move file
-                src = os.path.join(folderpath, f)
-                dst = os.path.join(folderpath, "done", f)
-                shutil.copy2(src, dst)
-                os.remove(src)            
-            except Exception as e:
-                logger.error(e)
+                        
+                    self.execute_query(query)
+                    # Move file
+                    src = os.path.join(folderpath, f)
+                    dst = os.path.join(folderpath, "done", f)
+                    print('query done')
+                    shutil.copy2(src, dst)
+                    print('copy2 done')
+                    os.remove(src)
+                    print('remove done')
+                except Exception as e:
+                    logger.error(e)
+    
     
     def close(self):
         self.conn.close()

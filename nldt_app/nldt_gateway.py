@@ -24,13 +24,16 @@ logging.basicConfig(level=logging.INFO,
 import gc
 gc.enable()
 
-import serial.tools.list_ports
+import os
 import serial
+import serial.tools
+import serial.tools.list_ports
 import time
 import json
 from threading import Thread
 
 import nldt_dispatcher
+import nldt_transfert_bdd
 
 
 class NLDT_Gateway:
@@ -102,7 +105,24 @@ class NLDT_Gateway:
     def task_uart_inbox(self):
         while self.keep_alive:
             self.process_uart_inbox()
+            
     
+    def process_transfert_bdd(self):
+        inbox_folder = os.path.join(".", "inbox")
+        inboxes = [os.path.join(inbox_folder, inbox) for inbox in os.listdir(inbox_folder) if os.path.isdir(os.path.join(inbox_folder, inbox))]
+        
+        trans_bdd = nldt_transfert_bdd.Transfert_BDD()
+        trans_bdd.connect()
+        for inbox in inboxes:
+            logger.info(f'Transfert BDD inbox: {inbox}')
+            trans_bdd.process_folder(inbox)
+        trans_bdd.close()
+        
+        
+    def task_transfert_bdd(self):
+        while self.keep_alive:
+            self.process_transfert_bdd()
+            time.sleep(15)
         
     def start_threads(self):
         logger.info("Start threads")
@@ -112,15 +132,43 @@ class NLDT_Gateway:
         
         self.thread_uart_inbox = Thread(target=self.task_uart_inbox)
         self.thread_uart_inbox.start()
+        
+        self.thread_transfert_bdd = Thread(target=self.task_transfert_bdd)
+        self.thread_transfert_bdd.start()        
 
 
     def stop_threads(self):
         logger.info("Stop threads")
         self.keep_alive = False
-        self.thread_listen_uart.join()
-        self.thread_uart_inbox.join()
+        
+        try:
+            self.thread_listen_uart.join()
+        except Exception as e:
+            logger.error(e)
+        try:
+            self.thread_uart_inbox.join()
+        except Exception as e:
+            logger.error(e)
+        try:
+            self.thread_transfert_bdd.join()
+        except Exception as e:
+            logger.error(e)
+        
         logger.info("Threads stopped")              
         
 
 if __name__ == "__main__":
-    gw = NLDT_Gateway(port='COM17')
+    try:
+        with open("./settings.json") as f:
+            settings = json.loads(f.read())
+            if 'port' in settings:
+                port = settings['port']
+            logger.info(port)
+            
+    except Exception as e:
+        logger.info(e)
+        port = None
+        
+    logger.info(f"startup, port={port}")
+    
+    gw = NLDT_Gateway(port=port)

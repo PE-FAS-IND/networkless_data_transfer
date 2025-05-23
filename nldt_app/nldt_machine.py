@@ -34,7 +34,7 @@ import serial.tools.list_ports
 import serial
 import time
 import json
-from threading import Thread
+import threading
 import shutil
 import os
 import socket
@@ -194,20 +194,22 @@ class NLDT_Machine:
         
     def start_threads(self):
         logger.info("Start threads")
+        self.stopFlag = threading.Event()
+        
         self.keep_alive = True
-        self.thread_uart = Thread(target=self.task_uart)
+        self.thread_uart = threading.Thread(target=self.task_uart)
         self.thread_uart.start()
         
-        self.thread_uart_inbox = Thread(target=self.task_uart_inbox)
+        self.thread_uart_inbox = threading.Thread(target=self.task_uart_inbox)
         self.thread_uart_inbox.start()
         
-        self.thread_uart_outbox = Thread(target=self.task_uart_outbox)
+        self.thread_uart_outbox = threading.Thread(target=self.task_uart_outbox)
         self.thread_uart_outbox.start()
         
-        self.thread_process_local_dir = Thread(target=self.task_process_local_dir)
+        self.thread_process_local_dir = threading.Thread(target=self.task_process_local_dir)
         self.thread_process_local_dir.start()
         
-        self.thread_trace_route = Thread(target=self.task_trace_route)
+        self.thread_trace_route = threading.Thread(target=self.task_trace_route)
         self.thread_trace_route.start()
                 
     

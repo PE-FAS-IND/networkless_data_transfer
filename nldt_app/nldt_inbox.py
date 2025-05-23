@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO,
 
 import json
 import os
+import shutil
 import re
 import hashlib
 
@@ -32,8 +33,21 @@ class NLDT_Inbox:
         
     
     def check_path(self):
+        # inbox folder
         if not os.path.isdir(self.inbox_path):
             os.makedirs(self.inbox_path, exist_ok=True)
+        
+        # temp folder
+        temp_path = os.path.join(self.inbox_path, "temp")
+        if not os.path.isdir(temp_path):
+            os.makedirs(temp_path, exist_ok=True)
+        
+        #done folder
+        done_folder = os.path.join(self.inbox_path, "done")
+        if not os.path.isdir(done_folder):
+            os.makedirs(done_folder, exist_ok=True)
+        
+            
     
         
     def process_message(self, obj):
@@ -56,7 +70,8 @@ class NLDT_Inbox:
             self.check_path()
             self.file = obj['file']
             self.checksum = obj['checksum']
-            self.path = os.path.join(self.inbox_path, self.file)
+            self.path = os.path.join(self.inbox_path, "temp", self.file)
+            
             with open(self.path, 'w') as f:
                 f.close()
             
@@ -78,7 +93,8 @@ class NLDT_Inbox:
                 logger.info(self.route)
                 logger.info(self.host)
                 
-                # Move to subfolder confirmed
+                # Move from temp to inbox folder
+                shutil.move(self.path, os.path.join(self.inbox_path, self.file))
                 
                 confirmation = { 
                     "dest": self.route[0],
